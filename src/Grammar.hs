@@ -13,28 +13,28 @@ data CFG n t
       deriving Show
 
 data RCFG n t
-    = RCFG (CFG n t) [n] [n]
+    = RCFG { cfg :: CFG n t, useful :: [n], nullable :: [n] }
       deriving Show
 
 -- | a reduced CFG packaged with useful NTs and nullable NTs
 mkRCFG :: (Ord n) => CFG n t -> RCFG n t
-mkRCFG cfg = 
-    let useful = usefulNts cfg
+mkRCFG cfg@ (CFG _ _ ps _) = 
+    let useful = usefulNts ps
         redcfg = reduceGrammar cfg useful
     in
     RCFG redcfg useful (nullableNts redcfg)
 
 -- | emptiness check
 emptyLanguage :: (Ord n) => CFG n t -> n -> Bool
-emptyLanguage cfg start = 
-    not (start `elem` usefulNts cfg)
+emptyLanguage (CFG nts ts ps _) start = 
+    not (start `elem` usefulNts ps)
 
-usefulNts :: (Ord n) => CFG n t -> [n]
-usefulNts cfg = 
-    fixpoint (usefulStep cfg) []
+usefulNts :: (Ord n) => [Production n t] -> [n]
+usefulNts ps = 
+    fixpoint (usefulStep ps) []
 
-usefulStep :: Ord n => CFG n t -> [n] -> [n]
-usefulStep (CFG nts ts ps _) assumed =
+usefulStep :: Ord n => [Production n t] -> [n] -> [n]
+usefulStep ps assumed =
     dropRepeated $ sort [nt | Production nt alpha <- ps, all (usefulSymbol assumed) alpha]
 
 usefulSymbol :: (Eq n) => [n] -> Symbol n t -> Bool
@@ -107,6 +107,10 @@ derivative (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
     deriveNT (n, ts) t =
         (n, t:ts)
 
+-- | attempt to match new productions with existing ones,
+-- on success generate a substitution : new nts -> old nts
+matchProductions (CFG nts ts ps start) newNTs newPs =
+    undefined
 
 -- | general utility
 
