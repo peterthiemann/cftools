@@ -70,36 +70,42 @@ reduceGrammar (CFG nts ts ps start) usefulNts =
 -- | derivative -- should better be done with a proper monad...
 derivative :: (Eq n, Eq t) => RCFG (n,[t]) t -> t -> CFG (n,[t]) t
 derivative (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
-    worker [start] [] cfg
+    CFG (newNTs ++ nts) ts (newPs ++ ps) (deriveNT start t)
     where
-    -- NTs to consider, NTs already processed, current cfg (where nts and productions are added)
-    worker [] processed (CFG nts' ts' ps' start') =
-        (CFG nts' ts' ps' (deriveNT start t))
-    worker nts0@(nt:nts) processed (CFG nts' ts' ps' start') = 
+    (newNTs, newPs) = worker [start] [] ([], [])
+    -- NTs to consider, NTs already processed, (accumlated nts and productions)
+    worker [] processed nps =
+        nps
+    worker nts0@(nt:nts) processed (nts', ps') = 
         let ntprods = [Production n alpha | Production n alpha <- ps, n == nt] 
-            (newprods, newNTs) = processProductions ntprods [] []
-            considerNTs = (nub newNTs \\ processed) \\ nts0
+            newNT   = deriveNT nt t
+            (newprods, candidates) = processProductions newNT ntprods [] []
+            considerNTs = (nub candidates \\ processed) \\ nts0
         in
-        worker (considerNTs ++ nts) (nt:processed) (CFG (deriveNT nt t : nts') ts' (newprods ++ ps') start')
+        worker (considerNTs ++ nts) (nt:processed) (newNT : nts', newprods ++ ps')
 
-    processProductions [] newprods newNTs =
-        (newprods, newNTs)
-    processProductions (Production nt alpha:ps) newprods newNTs =
-        let (rhss, newNTs') = deriveAlpha alpha newNTs in
-        processProductions ps ([Production (deriveNT nt t) alpha' | alpha' <- rhss] ++ newprods) newNTs'
+    -- 
+    processProductions newNT [] newprods candidates =
+        (newprods, candidates)
+    processProductions newNT (Production nt alpha:ps) newprods candidates =
+        let (rhss, candidates') = deriveAlpha alpha in
+        processProductions newNT ps ([Production newNT alpha' | alpha' <- rhss] ++ newprods)
+                               (candidates' ++ candidates)
 
-    deriveAlpha [] newNTs = ([], newNTs)
-    deriveAlpha (Left nt:rest) newNTs = 
+    deriveAlpha [] =
+        ([], [])
+    deriveAlpha (Left nt:rest) = 
         if nt `elem` nullable
-        then let (rhss, newNTs') = deriveAlpha rest newNTs in
-             ((Left (deriveNT nt t):rest) : rhss, deriveNT nt t : newNTs')
-        else ([Left (deriveNT nt t):rest], deriveNT nt t : newNTs)
-    deriveAlpha (Right t':rest) newNTs =
+        then let (rhss, candidates) = deriveAlpha rest in
+             ((Left (deriveNT nt t):rest) : rhss, nt : candidates)
+        else ([Left (deriveNT nt t):rest], [nt])
+    deriveAlpha (Right t':rest) =
         if t==t'
-        then ([rest], newNTs)
-        else ([], newNTs)
+        then ([rest], [])
+        else ([], [])
 
-    deriveNT (n, ts) t = (n, t:ts)
+    deriveNT (n, ts) t =
+        (n, t:ts)
 
 
 -- | general utility
