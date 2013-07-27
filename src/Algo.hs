@@ -1,6 +1,7 @@
 module Algo where
 
 import Data.List (sort, nub, (\\))
+import Data.Maybe (fromMaybe)
 
 import Grammar
 import Util
@@ -70,6 +71,14 @@ reduceProductions rcfg ps =
     in (nPs, nUseful, nNullable)
 
 type Substitution n = [(n, n)]
+dom :: Substitution n -> [n]
+dom = map fst
+ran :: Substitution n -> [n]
+ran = map snd
+app :: (Eq n) => Substitution n -> n -> n
+app s n = fromMaybe n (lookup n s)
+ext :: Substitution n -> n -> n -> Substitution n
+ext s n n' = (n, n') : s
 
 -- | match new productions with new lhs nonterminals to existing productions
 -- cannot do this one at a time because productions may be mutually recursive
@@ -80,6 +89,36 @@ type Substitution n = [(n, n)]
 matchProductions :: (Eq n) => RCFG n t -> [Production n t] -> Substitution n
 matchProductions rcfg ps = 
     undefined
+
+findMatchProd :: (Eq n, Eq t)
+          => Substitution n -> [Production n t] -> Production n t
+          -> [(Substitution n, [Production n t])]
+findMatchProd sub [] new =
+    []
+findMatchProd sub (p@(Production n alpha) : rest) p'@(Production n' alpha') =
+    (map (\s -> (s, rest)) $
+    if app sub n' == n
+    then findMatch sub alpha alpha'
+    else findMatch (ext sub n' n) alpha alpha')
+    ++
+    (map (\(s, rem) -> (s, p : rem)) $ findMatchProd sub rest p')
+
+findMatch :: (Eq n, Eq t)
+          => Substitution n -> [Symbol n t] -> [Symbol n t] -> [Substitution n]
+findMatch sub [] [] =
+    [sub]
+findMatch sub (Right t1 : alpha1) (Right t2 : alpha2) =
+    if t1 == t2 
+    then findMatch sub alpha1 alpha2
+    else []
+findMatch sub (Left n1 : alpha1) (Left n2 : alpha2) =
+    if app sub n2 == n1 
+    then findMatch sub alpha1 alpha2
+    else if n2 `elem` dom sub
+    then []
+    else findMatch (ext sub n2 n1) alpha1 alpha2
+findMatch sub _ _ =
+    []
 
 -- | derivative -- should better be done with a proper monad...
 derivative :: (Eq n, Eq t) => RCFG (n,[t]) t -> t -> CFG (n,[t]) t
