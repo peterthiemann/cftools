@@ -31,3 +31,20 @@ test3b = findMatch [] alpha3 beta2
 test3c = findMatch [] alpha3 beta3
 test3d = findMatch [('D','B')] alpha3 beta3
 test3e = findMatch [('D','A')] alpha3 beta3
+
+-------
+
+prods_o_1 = [Production 'A' alpha1]
+prod_n_1 = Production 'N' beta1
+prod_n_2 = Production 'N' beta2
+prod_n_3 = Production 'N' alpha2
+
+test_p_1a = findMatchProd emptysub prods_o_1 prod_n_1 
+test_p_1b = findMatchProd emptysub prods_o_1 prod_n_2
+
+prods_o_2 = [Production 'A' alpha2] 
+
+test_p_2a = findMatchProd emptysub prods_o_2 prod_n_1 
+test_p_2b = findMatchProd emptysub prods_o_2 prod_n_2
+test_p_2c = findMatchProd emptysub prods_o_2 prod_n_3
+
