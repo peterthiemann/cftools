@@ -79,6 +79,11 @@ app :: (Eq n) => Substitution n -> n -> n
 app s n = fromMaybe n (lookup n s)
 ext :: Substitution n -> n -> n -> Substitution n
 ext s n n' = (n, n') : s
+emptysub :: Substitution n
+emptysub = []
+
+appSym :: (Eq n) => Substitution n -> Symbol n t -> Symbol n t
+appSym s = either (Left . app s) Right
 
 -- | match new productions with new lhs nonterminals to existing productions
 -- cannot do this one at a time because productions may be mutually recursive
@@ -86,9 +91,27 @@ ext s n n' = (n, n') : s
 -- * new productions can be removed for each n in dom(S)
 -- * S must be applied to the right hand sides of the new productions
 -- * S must be applied to the new start symbol
-matchProductions :: (Eq n) => RCFG n t -> [Production n t] -> Substitution n
-matchProductions rcfg ps = 
-    undefined
+matchProductions :: (Eq n, Eq t) => RCFG n t -> [Production n t] -> Substitution n
+matchProductions rcfg ps =
+    head (findMatchProductions emptysub originals ps [] ++ [emptysub])
+    where CFG _ _ originals _ = cfg rcfg
+
+findMatchProductions :: (Eq n, Eq t)
+          => Substitution n -> [Production n t] -> [Production n t]
+          -> [Production n t]
+          -> [Substitution n]
+findMatchProductions sub originals [] ps =
+    let nts_orig = [n | Production n _ <- originals]
+        nts_new  = [n | Production n _ <- ps]
+    in  if any (`elem` dom sub) nts_new -- any nonterminal only partially matched?
+        || any (`elem` ran sub) nts_orig
+        then []
+        else [sub]
+findMatchProductions sub originals (p : ps) acc_ps =
+    do (sub', remaining) <- findMatchProd sub originals p
+       findMatchProductions sub' remaining ps acc_ps
+    ++ findMatchProductions sub originals ps (p : acc_ps)
+       
 
 findMatchProd :: (Eq n, Eq t)
           => Substitution n -> [Production n t] -> Production n t
@@ -120,10 +143,27 @@ findMatch sub (Left n1 : alpha1) (Left n2 : alpha2) =
 findMatch sub _ _ =
     []
 
+derivative :: (Ord n, Ord t) => RCFG (n,[t]) t -> t
+           -> RCFG (n,[t]) t
+derivative rcfg t =
+    let (newNts, newPs, newStart) = derivativeProductions rcfg t
+        (newPs', newUseful, newNullable) = reduceProductions rcfg newPs
+        sub = matchProductions rcfg newPs'
+        remainingNewPs = [ Production n (map (appSym sub) alpha)
+                         | Production n alpha <- newPs'
+                         , not (n `elem` dom sub)]
+        remainingUseful = [n | n <- newUseful, not (n `elem` dom sub)]
+        remainingNullable  = [n | n <- newNullable, not (n `elem` dom sub)]
+        CFG nts ts ps start = cfg rcfg
+    in  RCFG { cfg = CFG (nts ++ remainingUseful) ts (ps ++ remainingNewPs) newStart
+             , useful = useful rcfg ++ remainingUseful
+             , nullable = nullable rcfg ++ remainingNullable}
+
 -- | derivative -- should better be done with a proper monad...
-derivative :: (Eq n, Eq t) => RCFG (n,[t]) t -> t -> CFG (n,[t]) t
-derivative (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
-    CFG (newNTs ++ nts) ts (newPs ++ ps) (deriveNT start t)
+derivativeProductions :: (Eq n, Eq t) => RCFG (n,[t]) t -> t
+                      -> ([(n, [t])], [Production (n, [t]) t], (n, [t]))
+derivativeProductions (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
+    (newNTs, newPs, deriveNT start t)
     where
     (newNTs, newPs) = worker [start] [] ([], [])
     -- NTs to consider, NTs already processed, (accumlated nts and productions)
