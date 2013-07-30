@@ -14,11 +14,19 @@ ex0 = CFG
       'S'
 
 -- | simple expressions, left recursive
-ex1 = CFG
+ex1left = CFG
       ['F', 'T']
       ['x', '+']
       [Production 'T' [Left 'F']
       ,Production 'T' [Left 'T', Right '+', Left 'F']
+      ,Production 'F' [Right 'x']]  
+      'T'
+
+ex1right = CFG
+      ['F', 'T']
+      ['x', '+']
+      [Production 'T' [Left 'F']
+      ,Production 'T' [Left 'F', Right '+', Left 'T']
       ,Production 'F' [Right 'x']]  
       'T'
 

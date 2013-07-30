@@ -2,6 +2,7 @@ module Tests where
 
 import Grammar
 import Algo
+import Examples
 
 type Alpha = [Symbol Char Char]
 
@@ -48,3 +49,30 @@ test_p_2a = findMatchProd emptysub prods_o_2 prod_n_1
 test_p_2b = findMatchProd emptysub prods_o_2 prod_n_2
 test_p_2c = findMatchProd emptysub prods_o_2 prod_n_3
 
+--------
+
+CFG _ _ p_ex1left _ = ex1left
+CFG _ _ p_ex1right _ = ex1right
+
+test_ex1_1 = findMatchProd emptysub p_ex1left (p_ex1right !! 0)
+test_ex1_2 = findMatchProd emptysub p_ex1left (p_ex1right !! 1)
+test_ex1_3 = findMatchProd emptysub p_ex1left (p_ex1right !! 2)
+test_ex1_4 = findMatchProd emptysub p_ex1left (Production 'G' [Right 'x'])
+
+--------
+
+rex1l = mkRCFG (liftG ex1left)
+rex1r = mkRCFG (liftG ex1right)
+
+rex1l_x_p = derivativeProductions rex1l 'x' 
+rex1r_x_p = derivativeProductions rex1r 'x' 
+
+rex1l_x = derivative rex1l 'x'
+rex1r_x = derivative rex1r 'x'
+rex1l_plus = derivative rex1l '+'
+rex1r_plus = derivative rex1r '+'
+
+rex1l_x_x = derivative rex1l_x 'x'
+rex1r_x_x = derivative rex1r_x 'x'
+rex1l_x_plus = derivative rex1l_x '+'
+rex1r_x_plus = derivative rex1r_x '+'
