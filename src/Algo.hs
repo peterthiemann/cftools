@@ -51,7 +51,7 @@ reduceGrammar (CFG nts ts ps start) usefulNts =
     where
     ps' = [Production nt alpha | Production nt alpha <- ps, all (usefulSymbol usefulNts) alpha]
 
--- | a reduced CFG packaged with useful NTs and nullable NTs
+-- | package a reduced CFG with useful NTs and nullable NTs
 mkRCFG :: (Ord n) => CFG n t -> RCFG n t
 mkRCFG cfg@ (CFG _ _ ps _) = 
     let useful = usefulNts ps []
@@ -70,6 +70,7 @@ reduceProductions rcfg ps =
         nNullable = nullableNts nPs (nullable rcfg) 
     in (nPs, nUseful, nNullable)
 
+-- | a substitution is actually a renaming of nonterminal symbols, represented by a list of pairs
 type Substitution n = [(n, n)]
 dom :: Substitution n -> [n]
 dom = map fst
@@ -82,6 +83,7 @@ ext s n n' = (n, n') : s
 emptysub :: Substitution n
 emptysub = []
 
+-- | apply a substitution to a symbol
 appSym :: (Eq n) => Substitution n -> Symbol n t -> Symbol n t
 appSym s = either (Left . app s) Right
 
