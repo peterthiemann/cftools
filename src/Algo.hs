@@ -1,6 +1,6 @@
 module Algo where
 
-import Data.List (sort, nub, (\\))
+import Data.List (sort, nub, (\\), groupBy)
 import Data.Maybe (fromMaybe)
 
 import Grammar
@@ -86,6 +86,24 @@ emptysub = []
 -- | apply a substitution to a symbol
 appSym :: (Eq n) => Substitution n -> Symbol n t -> Symbol n t
 appSym s = either (Left . app s) Right
+
+-- | shortcut chain productions
+removeChainProductions :: (Eq n) => RCFG n t -> RCFG n t
+removeChainProductions rcfg =
+    let CFG nts ts ps start = cfg rcfg
+        psByNt = groupBy eqNt ps
+        eqNt (Production n1 _) (Production n2 _) = n1 == n2
+        chainSub = [(n1, n2) | [Production n1 [Left n2]] <- psByNt]
+        eliminatedNts = dom chainSub
+        newNts = nts \\ eliminatedNts
+        newPs  = [ Production n (map (appSym chainSub) alpha)
+                 | Production n alpha <- ps
+                 , not (n `elem` eliminatedNts)]
+        newStart = app chainSub start
+    in  RCFG { cfg = CFG newNts ts newPs newStart
+             , useful = useful rcfg \\ eliminatedNts
+             , nullable = nullable rcfg \\ eliminatedNts
+             }
 
 -- | match new productions with new lhs nonterminals to existing productions
 -- cannot do this one at a time because productions may be mutually recursive
