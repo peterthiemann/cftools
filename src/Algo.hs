@@ -17,7 +17,7 @@ usefulNts ps init =
 
 usefulStep :: Ord n => [Production n t] -> [n] -> [n]
 usefulStep ps assumed =
-    dropRepeated $ sort [nt | p@(Production nt alpha) <- ps, usefulProduction p assumed]
+    dropRepeated $ sort ([nt | p@(Production nt alpha) <- ps, usefulProduction p assumed] ++ assumed)
 
 usefulProduction :: Eq n => Production n t -> [n] -> Bool
 usefulProduction (Production nt alpha) assumed =
@@ -38,7 +38,7 @@ nullableNts ps init =
 
 nullableStep :: Ord n => [Production n t] -> [n] -> [n]
 nullableStep ps assumed =
-    dropRepeated $ sort [nt | Production nt alpha <- ps, all (nullableSymbol assumed) alpha]
+    dropRepeated $ sort ([nt | Production nt alpha <- ps, all (nullableSymbol assumed) alpha] ++ assumed)
 
 nullableSymbol :: (Eq n) => [n] -> Symbol n t -> Bool
 nullableSymbol assumed (Right t) = False
@@ -156,10 +156,12 @@ derivative rcfg t =
                          , not (n `elem` dom sub)]
         remainingUseful = [n | n <- newUseful, not (n `elem` dom sub)]
         remainingNullable  = [n | n <- newNullable, not (n `elem` dom sub)]
+        substitutedStart = app sub newStart
+        remainingNts = nub (substitutedStart : nts ++ remainingUseful)
         CFG nts ts ps start = cfg rcfg
-    in  RCFG { cfg = CFG (nts ++ remainingUseful) ts (ps ++ remainingNewPs) newStart
-             , useful = useful rcfg ++ remainingUseful
-             , nullable = nullable rcfg ++ remainingNullable}
+    in  RCFG { cfg = CFG remainingNts ts (ps ++ remainingNewPs) substitutedStart
+             , useful = nub (useful rcfg ++ remainingUseful)
+             , nullable = nub (nullable rcfg ++ remainingNullable)}
 
 -- | derivative -- should better be done with a proper monad...
 derivativeProductions :: (Eq n, Eq t) => RCFG (n,[t]) t -> t
