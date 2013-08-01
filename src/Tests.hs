@@ -79,8 +79,23 @@ rex1r_x_plus = derivative rex1r_x '+'
 
 --------
 
-test_contained_1 = isContained ex1left ex1right
-test_contained_2 = isContained ex1right ex1left
+test_contained_1 = isContained 1 ex1left ex1right
+test_contained_2 = isContained 1 ex1right ex1left
 
-test_contained_3 = isContained ex3 ex4
-test_contained_4 = isContained ex4 ex3
+test_contained_3 = isContained 1 ex3 ex4
+test_contained_4 = isContained 1 ex4 ex3
+
+test_contained_13 = isContained 0 ex1left ex3
+test_contained_31 = isContained 0 ex3 ex1left
+
+-- the next two yield timeouts
+test_contained_5 = isContained 2 ex5left ex5right
+test_contained_6 = isContained 1 ex5right ex5left
+
+test_contained_55 = isContained 1 ex1left ex1left
+test_contained_66 = isContained 1 ex1right ex1right
+
+test_contained_15 = isContained 1 ex1left ex5left
+test_contained_16 = isContained 1 ex1left ex5right
+test_contained_51 = isContained 1 ex5left ex1left
+test_contained_61 = isContained 1 ex5right ex1left

@@ -225,33 +225,36 @@ derivativeProductions (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
         (n, t:ts)
 
 -- | result type for a semialgorithm
-data Result t  = Yes | No [t] | Timeout
-                 deriving Show
+data Result n1 n2 t  = Yes | No [t] | Timeout (State n1 n2 t)
+                   deriving Show
 
+data State n1 n2 t
+    = State [t] (RCFG (n1,[t]) t, RCFG (n2,[t]) t) [((n1,[t]), (n2,[t]))]
+      deriving Show
+                  
 
 -- | containment test; may not terminate
-isContained :: (Ord n1, Ord n2, Ord t) => CFG n1 t -> CFG n2 t -> Result t
-isContained cfg1@ (CFG _ ts1 _ _) cfg2 =
+isContained :: (Ord n1, Ord n2, Ord t) => Int -> CFG n1 t -> CFG n2 t -> Result n1 n2 t
+isContained cutoff cfg1@ (CFG _ ts1 _ _) cfg2 =
     let rcfg1 = mkRCFG $ liftG cfg1
         rcfg2 = mkRCFG $ liftG cfg2
-        cutoff = 100
     in
         derivePairs cutoff ts1 [] (rcfg1, rcfg2) []
 
 
 derivePairs :: (Ord n1, Ord n2, Ord t)
-            => Int -> [t] -> [t] -> (RCFG (n1,[t]) t, RCFG (n2,[t]) t) -> [((n1,[t]), (n2,[t]))] -> Result t
-derivePairs cutoff allts tprefix (rcfg1, rcfg2) seen =
+            => Int -> [t] -> [t] -> (RCFG (n1,[t]) t, RCFG (n2,[t]) t) -> [((n1,[t]), (n2,[t]))] -> Result n1 n2 t
+derivePairs cutoff allts tprefix current@(rcfg1, rcfg2) seen =
     if (rstart rcfg1, rstart rcfg2) `elem` seen
     then Yes
     else if remptyLanguage rcfg1
     then Yes
     else if remptyLanguage rcfg2
-    then No tprefix
+    then No (reverse tprefix)
     else if rnullableLanguage rcfg1 && not (rnullableLanguage rcfg2) 
-    then No tprefix
+    then No (reverse tprefix)
     else if length tprefix > cutoff
-    then Timeout
+    then Timeout $ State tprefix current seen
     else
     let newSeen = (rstart rcfg1, rstart rcfg2) : seen
         recresults = map (\t -> derivePairs cutoff allts (t:tprefix)
@@ -267,5 +270,34 @@ combineResults dflt (Yes : rest) =
     combineResults dflt rest
 combineResults dflt (No witness : rest) =
     No witness
-combineResults dflt (Timeout : rest) =
-    combineResults Timeout rest
+combineResults dflt (timeout@(Timeout _) : rest) =
+    combineResults timeout rest
+
+-- | specific show function
+
+showResult :: Result Char Char Char -> ShowS
+showResult Yes = 
+    showString "Yes"
+showResult (No ts) =
+    showString ("No: " ++ ts)
+showResult (Timeout st) =
+    showString "Timeout: " .
+    showState st
+
+showState :: State Char Char Char -> ShowS
+showState (State ts (rcfg1, rcfg2) seen) =
+    showString "State: \"" .
+    showString (reverse ts) .
+    showString "\"  |  " .
+    showGrammar (cfg rcfg1) .
+    showString "  <=  " .
+    showGrammar (cfg rcfg2) .
+    showString "  |  " .
+    foldr (.) id (map showNtPair seen)
+
+showNtPair (n1, n2) =
+    showChar '(' .
+    showNT n1 .
+    showString ", " .
+    showNT n2 .
+    showString ") "

@@ -50,3 +50,22 @@ ex4 = CFG
       [Production 'F' []
       ,Production 'F' [Left 'F', Right 'y']]  
       'F'
+
+-- | bracketed expressions, left recursive
+ex5left = CFG
+      ['F', 'T']
+      ['x', '+', '(', ')']
+      [Production 'T' [Left 'F']
+      ,Production 'T' [Left 'T', Right '+', Left 'F']
+      ,Production 'F' [Right 'x']
+      ,Production 'F' [Right '(', Left 'T', Right ')']]
+      'T'
+
+ex5right = CFG
+      ['F', 'T']
+      ['x', '+', '(', ')']
+      [Production 'T' [Left 'F']
+      ,Production 'T' [Left 'F', Right '+', Left 'T']
+      ,Production 'F' [Right 'x']
+      ,Production 'F' [Right '(', Left 'T', Right ')']]  
+      'T'
