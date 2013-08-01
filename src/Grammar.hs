@@ -9,12 +9,21 @@ data Production n t
       deriving Show
 
 data CFG n t
-    = CFG [n] [t] [Production n t] n
+    = CFG { nts :: [n], ts :: [t], ps :: [Production n t], start :: n }
       deriving Show
 
 data RCFG n t
     = RCFG { cfg :: CFG n t, useful :: [n], nullable :: [n] }
       deriving Show
+
+rstart :: RCFG n t -> n
+rstart = start . cfg
+
+remptyLanguage :: (Eq n) => RCFG n t -> Bool
+remptyLanguage rcfg = not (rstart rcfg `elem` useful rcfg)
+
+rnullableLanguage :: (Eq n) => RCFG n t -> Bool
+rnullableLanguage rcfg = rstart rcfg `elem` nullable rcfg
 
 liftG :: CFG n t -> CFG (n,[t]) t
 liftG (CFG nts ts ps start) =

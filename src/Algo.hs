@@ -177,9 +177,11 @@ derivative rcfg t =
         substitutedStart = app sub newStart
         remainingNts = nub (substitutedStart : nts ++ remainingUseful)
         CFG nts ts ps start = cfg rcfg
-    in  RCFG { cfg = CFG remainingNts ts (ps ++ remainingNewPs) substitutedStart
-             , useful = nub (useful rcfg ++ remainingUseful)
-             , nullable = nub (nullable rcfg ++ remainingNullable)}
+        newRcfg = RCFG
+                  { cfg = CFG remainingNts ts (ps ++ remainingNewPs) substitutedStart
+                  , useful = nub (useful rcfg ++ remainingUseful)
+                  , nullable = nub (nullable rcfg ++ remainingNullable)}
+    in  removeChainProductions newRcfg
 
 -- | derivative -- should better be done with a proper monad...
 derivativeProductions :: (Eq n, Eq t) => RCFG (n,[t]) t -> t
@@ -222,3 +224,48 @@ derivativeProductions (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
     deriveNT (n, ts) t =
         (n, t:ts)
 
+-- | result type for a semialgorithm
+data Result t  = Yes | No [t] | Timeout
+                 deriving Show
+
+
+-- | containment test; may not terminate
+isContained :: (Ord n1, Ord n2, Ord t) => CFG n1 t -> CFG n2 t -> Result t
+isContained cfg1@ (CFG _ ts1 _ _) cfg2 =
+    let rcfg1 = mkRCFG $ liftG cfg1
+        rcfg2 = mkRCFG $ liftG cfg2
+        cutoff = 100
+    in
+        derivePairs cutoff ts1 [] (rcfg1, rcfg2) []
+
+
+derivePairs :: (Ord n1, Ord n2, Ord t)
+            => Int -> [t] -> [t] -> (RCFG (n1,[t]) t, RCFG (n2,[t]) t) -> [((n1,[t]), (n2,[t]))] -> Result t
+derivePairs cutoff allts tprefix (rcfg1, rcfg2) seen =
+    if (rstart rcfg1, rstart rcfg2) `elem` seen
+    then Yes
+    else if remptyLanguage rcfg1
+    then Yes
+    else if remptyLanguage rcfg2
+    then No tprefix
+    else if rnullableLanguage rcfg1 && not (rnullableLanguage rcfg2) 
+    then No tprefix
+    else if length tprefix > cutoff
+    then Timeout
+    else
+    let newSeen = (rstart rcfg1, rstart rcfg2) : seen
+        recresults = map (\t -> derivePairs cutoff allts (t:tprefix)
+                                            (derivative rcfg1 t, derivative rcfg2 t) newSeen)
+                         allts
+    in  combineResults Yes recresults
+
+
+-- | combine the results of subsidiary subset checks. Precedence: No, Timeout, Yes
+combineResults dflt [] =
+    dflt
+combineResults dflt (Yes : rest) =
+    combineResults dflt rest
+combineResults dflt (No witness : rest) =
+    No witness
+combineResults dflt (Timeout : rest) =
+    combineResults Timeout rest

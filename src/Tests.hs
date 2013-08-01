@@ -76,3 +76,11 @@ rex1l_x_x = derivative rex1l_x 'x'
 rex1r_x_x = derivative rex1r_x 'x'
 rex1l_x_plus = derivative rex1l_x '+'
 rex1r_x_plus = derivative rex1r_x '+'
+
+--------
+
+test_contained_1 = isContained ex1left ex1right
+test_contained_2 = isContained ex1right ex1left
+
+test_contained_3 = isContained ex3 ex4
+test_contained_4 = isContained ex4 ex3
