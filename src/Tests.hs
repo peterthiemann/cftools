@@ -99,3 +99,6 @@ test_contained_15 = isContained 1 ex1left ex5left
 test_contained_16 = isContained 1 ex1left ex5right
 test_contained_51 = isContained 1 ex5left ex1left
 test_contained_61 = isContained 1 ex5right ex1left
+
+-- test CFL <= REG:   a^n b^n <= (a + b)*
+test_contained_7 = isContained 0 ex6left ex6right

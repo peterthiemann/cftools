@@ -59,6 +59,19 @@ mkRCFG cfg@ (CFG _ _ ps _) =
     in
     RCFG redcfg useful (nullableNts redps [])
 
+-- | construct a grammar for the reverse language
+reverseCFG :: CFG n t -> CFG n t
+reverseCFG cfg =
+    CFG (nts cfg) (ts cfg) (map reverseProduction (ps cfg)) (start cfg)
+
+reverseProduction :: Production n t -> Production n t
+reverseProduction (Production nt alpha) =
+    Production nt (reverse alpha)
+
+reverseRCFG :: RCFG n t -> RCFG n t
+reverseRCFG rcfg =
+    rcfg { cfg = reverseCFG $ cfg rcfg }
+
 -- | reduce productions with respect to an existing reduced grammar
 -- yields the remaining useful productions, the useful nonterminals, and
 -- the nullable nonterminals

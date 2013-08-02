@@ -69,3 +69,19 @@ ex5right = CFG
       ,Production 'F' [Right 'x']
       ,Production 'F' [Right '(', Left 'T', Right ')']]  
       'T'
+
+-- | L = { a^n b^n } 
+ex6left = CFG
+        ['S']
+        "ab"
+        [Production 'S' []
+        ,Production 'S' [Right 'a', Left 'S', Right 'b']]
+        'S'
+
+ex6right = CFG
+         ['R']
+         "ab"
+         [Production 'R' [Right 'a', Left 'R']
+         ,Production 'R' [Right 'b', Left 'R']
+         ,Production 'R' []]
+         'R'
