@@ -88,8 +88,8 @@ test_contained_4 = isContained 1 ex4 ex3
 test_contained_13 = isContained 0 ex1left ex3
 test_contained_31 = isContained 0 ex3 ex1left
 
--- the next two yield timeouts
-test_contained_5 = isContained 2 ex5left ex5right
+-- the next two yield timeouts with left derivation, but work with left and right derivation
+test_contained_5 = isContained 1 ex5left ex5right
 test_contained_6 = isContained 1 ex5right ex5left
 
 test_contained_55 = isContained 1 ex1left ex1left
@@ -101,4 +101,16 @@ test_contained_51 = isContained 1 ex5left ex1left
 test_contained_61 = isContained 1 ex5right ex1left
 
 -- test CFL <= REG:   a^n b^n <= (a + b)*
-test_contained_7 = isContained 0 ex6left ex6right
+-- requires left and right derivation
+test_contained_7 = isContained 1 ex6left ex6right
+test_contained_71 = isContained 1 ex6leftb ex6right
+test_contained_71_no = isContained 1 ex6leftb ex6rightb
+test_contained_17 = isContained 1 ex6rightb ex6leftb
+-- ex6leftc is same number of as and bs
+test_contained_7c = isContained 2 ex6leftc ex6right     -- takes quite long
+test_contained_7c_no = isContained 2 ex6leftc ex6left
+test_contained_7c_yes = isContained 2 ex6left ex6leftc
+
+--- matching parentheses <= (< + >)*
+test_contained_8 = isContained 2 ex7left ex7right
+

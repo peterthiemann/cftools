@@ -60,17 +60,26 @@ mkRCFG cfg@ (CFG _ _ ps _) =
     RCFG redcfg useful (nullableNts redps [])
 
 -- | construct a grammar for the reverse language
-reverseCFG :: CFG n t -> CFG n t
+reverseCFG :: CFG (NT n t) t -> CFG (NT n t) t
 reverseCFG cfg =
-    CFG (nts cfg) (ts cfg) (map reverseProduction (ps cfg)) (start cfg)
+    CFG (map reverseNT $ nts cfg)
+        (ts cfg)
+        (map reverseProduction (ps cfg))
+        (reverseNT $ start cfg)
 
-reverseProduction :: Production n t -> Production n t
+reverseProduction :: Production (NT n t) t -> Production (NT n t) t
 reverseProduction (Production nt alpha) =
-    Production nt (reverse alpha)
+    Production (reverseNT nt) (reverse $ map reverseSymbol alpha)
 
-reverseRCFG :: RCFG n t -> RCFG n t
+reverseRCFG :: RCFG (NT n t) t -> RCFG (NT n t) t
 reverseRCFG rcfg =
     rcfg { cfg = reverseCFG $ cfg rcfg }
+
+reverseSymbol =
+    either (Left . reverseNT) Right
+
+reverseNT (NT lts n rts) =
+    (NT rts n lts)
 
 -- | reduce productions with respect to an existing reduced grammar
 -- yields the remaining useful productions, the useful nonterminals, and
@@ -176,8 +185,9 @@ findMatch sub (Left n1 : alpha1) (Left n2 : alpha2) =
 findMatch sub _ _ =
     []
 
-derivative :: (Ord n, Ord t) => RCFG (n,[t]) t -> t
-           -> RCFG (n,[t]) t
+derivative :: (Ord n, Ord t)
+           => RCFG (NT n t) t -> t 
+           -> RCFG (NT n t) t
 derivative rcfg t =
     let (newNts, newPs, newStart) = derivativeProductions rcfg t
         (newPs', newUseful, newNullable) = reduceProductions rcfg newPs
@@ -197,8 +207,9 @@ derivative rcfg t =
     in  removeChainProductions newRcfg
 
 -- | derivative -- should better be done with a proper monad...
-derivativeProductions :: (Eq n, Eq t) => RCFG (n,[t]) t -> t
-                      -> ([(n, [t])], [Production (n, [t]) t], (n, [t]))
+derivativeProductions :: (Eq n, Eq t)
+                      => RCFG (NT n t) t -> t
+                      -> ([NT n t], [Production (NT n t) t], NT n t)
 derivativeProductions (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
     (newNTs, newPs, deriveNT start t)
     where
@@ -234,15 +245,15 @@ derivativeProductions (RCFG cfg@(CFG nts ts ps start) useful nullable) t =
         then ([rest], [])
         else ([], [])
 
-    deriveNT (n, ts) t =
-        (n, t:ts)
+deriveNT (NT lts n rts) t =
+    NT (t:lts) n rts
 
 -- | result type for a semialgorithm
 data Result n1 n2 t  = Yes | No [t] | Timeout (State n1 n2 t)
                    deriving Show
 
 data State n1 n2 t
-    = State [t] (RCFG (n1,[t]) t, RCFG (n2,[t]) t) [((n1,[t]), (n2,[t]))]
+    = State [t] (RCFG (NT n1 t) t, RCFG (NT n2 t) t) [(NT n1 t, NT n2 t)]
       deriving Show
                   
 
@@ -256,7 +267,8 @@ isContained cutoff cfg1@ (CFG _ ts1 _ _) cfg2 =
 
 
 derivePairs :: (Ord n1, Ord n2, Ord t)
-            => Int -> [t] -> [t] -> (RCFG (n1,[t]) t, RCFG (n2,[t]) t) -> [((n1,[t]), (n2,[t]))] -> Result n1 n2 t
+            => Int -> [t] -> [t] -> (RCFG (NT n1 t) t, RCFG (NT n2 t) t)
+            -> [(NT n1 t, NT n2 t)] -> Result n1 n2 t
 derivePairs cutoff allts tprefix current@(rcfg1, rcfg2) seen =
     if (rstart rcfg1, rstart rcfg2) `elem` seen
     then Yes
@@ -270,11 +282,19 @@ derivePairs cutoff allts tprefix current@(rcfg1, rcfg2) seen =
     then Timeout $ State tprefix current seen
     else
     let newSeen = (rstart rcfg1, rstart rcfg2) : seen
-        recresults = map (\t -> derivePairs cutoff allts (t:tprefix)
+        recresults1 = map (\t -> derivePairs cutoff allts (t:tprefix)
                                             (derivative rcfg1 t, derivative rcfg2 t) newSeen)
                          allts
-    in  combineResults Yes recresults
-
+        leftResults = combineResults Yes recresults1
+        rev_rcfg1 = reverseRCFG rcfg1
+        rev_rcfg2 = reverseRCFG rcfg2
+        recresults2 = map (\t -> derivePairs cutoff allts (t:tprefix)
+                                            (derivative rev_rcfg1 t, derivative rev_rcfg2 t) newSeen)
+                         allts
+        rightResults = combineResults Yes recresults2
+    in  case leftResults of
+            Timeout _ -> rightResults
+            _ -> leftResults
 
 -- | combine the results of subsidiary subset checks. Precedence: No, Timeout, Yes
 combineResults dflt [] =

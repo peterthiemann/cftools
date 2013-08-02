@@ -85,3 +85,45 @@ ex6right = CFG
          ,Production 'R' [Right 'b', Left 'R']
          ,Production 'R' []]
          'R'
+
+-- | L = { a^n b^m | m <= n } 
+ex6leftb = CFG
+        ['S']
+        "ab"
+        [Production 'S' []
+        ,Production 'S' [Right 'a', Left 'S']
+        ,Production 'S' [Right 'a', Left 'S', Right 'b']]
+        'S'
+
+ex6rightb = CFG
+         ['R']
+         "a"
+         [Production 'R' [Right 'a', Left 'R']
+         ,Production 'R' []]
+         'R'
+
+-- | L = same number of as and bs
+ex6leftc = CFG
+        ['S']
+        "ab"
+        [Production 'S' []
+        ,Production 'S' [Right 'b', Left 'S', Right 'a']
+        ,Production 'S' [Right 'a', Left 'S', Right 'b']
+        ,Production 'S' [Left 'S', Left 'S']]
+        'S'
+
+-- | L = matching parentheses
+ex7left = CFG
+        ['S']
+        "<>"
+        [Production 'S' []
+        ,Production 'S' [Right '<', Left 'S', Right '>']
+        ,Production 'S' [Left 'S', Left 'S']]
+        'S'
+ex7right = CFG
+         ['R']
+         "<>"
+         [Production 'R' [Right '<', Left 'R']
+         ,Production 'R' [Right '>', Left 'R']
+         ,Production 'R' []]
+         'R'
