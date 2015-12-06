@@ -25,3 +25,12 @@ library
                      , Regexp
                      , Regexp.Parser
   other-modules:       Util
+
+executable regex-equiv
+  hs-source-dirs:      src, app/regex-equiv
+  default-language:    Haskell2010
+  main-is:             Main.hs
+  build-depends:       base >= 4.7 && < 5
+                     , attoparsec >= 0.12 && < 0.14
+                     , text >= 1.0 && < 1.3
+                     , semigroups >= 0.15 && < 0.19
