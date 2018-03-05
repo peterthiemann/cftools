@@ -68,6 +68,9 @@ difference xss@(xs:xss') yss@(ys:yss')
   | lleq xs ys = xs : difference xss' yss
   | otherwise    = difference xss yss'
 
+multimerge :: (Ord t) => [Lang t] -> Lang t
+multimerge = foldr merge []  
+
 sigma_star :: [t] -> Lang t
 sigma_star sigma = loop
   where
@@ -75,14 +78,16 @@ sigma_star sigma = loop
     snoc xs x = xs ++ [x]
     f ts = map (snoc ts) sigma
 
+-- | has problems because it may hang
 concatenate ::(Ord t) => Lang t -> Lang t -> Lang t
 concatenate xss yss = collect 0
   where
     xsegs = segmentize xss
     ysegs = segmentize yss
-    collect n = sort (concatMap (combine n) [0 .. n]) ++ collect (n+1)
+    collect n = (multimerge $ map (combine n) [0 .. n]) ++ collect (n+1)
     combine n i = concatMap (\xs -> map (\ys -> xs ++ ys) (ysegs !! (n - i))) (xsegs !! i)
 
+-- | for testing
 xss = ["", "a", "cd"]
 yss = ["", "b", "aa"]
 
@@ -91,16 +96,17 @@ ysegs = segmentize yss
 combine n i = concatMap (\xs -> map (\ys -> xs ++ ys) (ysegs !! (n - i))) (xsegs !! i)
 
     
--- collect elements of the same length; returns an infinite list
+-- | collect elements of the same length; always returns an infinite list
+-- each same-length segment is sorted lexicographically
 segmentize :: Lang t -> [[[t]]]
 segmentize = collect 0
   where
-    collect n xss = takeWhile (\xs -> length xs == n) xss : collect (n+1) (dropWhile (\xs -> length xs == n) xss)
+    collect n xss = let (takes, drops) = splitWhile (\xs -> length xs == n) xss in takes : collect (n+1) drops
 
 -- | declarative, but not productive
 star xss = merge [[]] (concatenate xss (star xss))
 
--- |generate elements of the language of the gre as an ll-ascending stream
+-- | generate elements of the language of the gre as an ll-ascending stream
 generate :: (Ord t) => [t] -> GRE t -> Lang t
 generate sigma r = gen r
   where
@@ -120,7 +126,7 @@ segmentize' :: Lang t -> [[[t]]]
 segmentize' = collect 0
   where
     collect n [] = []
-    collect n xss = takeWhile (\xs -> length xs == n) xss : collect (n+1) (dropWhile (\xs -> length xs == n) xss)
+    collect n xss = let (takes, drops) = splitWhile (\xs -> length xs == n) xss in takes : collect (n+1) drops
 
 concatenate' :: (Ord t) => Lang t -> Lang t -> Lang t
 concatenate' xss yss = collect 0
@@ -129,7 +135,7 @@ concatenate' xss yss = collect 0
     ysegs = segmentize' yss
     exhausted xs n = all isNothing (map (maybeIndex xs) [n `div` 2 .. n])
     collect n | exhausted xsegs n && exhausted ysegs n = []
-              | otherwise = (remDuplicates $ sort $ concatMap (combine n) [0 .. n]) ++ collect (n+1)
+              | otherwise = (multimerge $ map (combine n) [0 .. n]) ++ collect (n+1)
     combine n i = concatMap (\xs -> map (\ys -> xs ++ ys) (fromMaybe [] $ maybeIndex ysegs (n - i))) (fromMaybe [] $ maybeIndex xsegs i)
 
 maybeIndex :: [a] -> Int -> Maybe a
@@ -152,7 +158,7 @@ star4 :: (Ord t) => [[t]] -> [[t]]
 star4 xss = collect 0
   where
     xsegs = segmentize xss
-    collect n = (remDuplicates $ sort $ concatMap wordsFromPartition (partitions n)) ++ collect (n + 1)
+    collect n = (multimerge $ map wordsFromPartition (partitions n)) ++ collect (n + 1)
     wordsFromPartition [] = [[]]
     wordsFromPartition (i:is) = concatMap (\w -> map (++w) (xsegs !! i)) (wordsFromPartition is)
 
@@ -163,7 +169,7 @@ star4' xss = [] : collect 1
     xsegs = segmentize xss
     infiniteResult = any (\xs -> length xs > 0) xss
     collect n 
-      | infiniteResult = (remDuplicates $ sort $ concatMap wordsFromPartition (partitions n)) ++ collect (n + 1)
+      | infiniteResult = (multimerge $ map wordsFromPartition (partitions n)) ++ collect (n + 1)
       | otherwise = []
     wordsFromPartition [] = [[]]
     wordsFromPartition (i:is) = concatMap (\w -> map (++w) (xsegs !! i)) (wordsFromPartition is)
@@ -186,21 +192,22 @@ llsorted [] = []
 llsorted [_] = []
 llsorted (x:xs@(y:_)) = lleq x y : llsorted xs
 
--- | remove adjacent duplicates
-remDuplicates :: (Eq a) => [a] -> [a]
-remDuplicates [] = []
-remDuplicates [x] = [x]
-remDuplicates (x:xs@(y:_))
-  | x == y = remDuplicates xs
-  | otherwise = x : remDuplicates xs
+-- | combination of takeWhile and dropWhile
+splitWhile :: (a -> Bool) -> [a] -> ([a], [a])
+splitWhile p [] = ([], [])
+splitWhile p xs@(x:xs')
+  | p x = let (takes, drops) = splitWhile p xs' in (x:takes, drops)
+  | otherwise = ([], xs)
 
-{-
-star''' sigma xss = loop
+-- | generate elements of the language of the gre as an ll-ascending stream; the final thing
+generate' :: (Ord t) => [t] -> GRE t -> Lang t
+generate' sigma r = gen r
   where
-    derivations = map (\t -> (derive t xss)) sigma
-    mderivations = foldr merge [] derivations
-    rest = concatenate' mderivations loop
-    loop = [] : rest
-      
-derive t xss = do { xs@(x:_) <- xss; if t == x then return xs else fail "" }
--}
+    gen Zero = []
+    gen One  = [[]]
+    gen (Atom t) = [[t]]
+    gen (Dot r s) = concatenate' (gen r) (gen s)
+    gen (Or r s) = merge (gen r) (gen s)
+    gen (And r s) = intersect (gen r) (gen s)
+    gen (Not r) = difference (sigma_star sigma) (gen r)
+    gen (Star r) = star4' (gen r)
