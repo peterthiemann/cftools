@@ -204,11 +204,11 @@ star6 xss = [] : collect (tail xsegs) [] 1
   where
     xsegs = segmentize xss
     infiniteResult = any (\xs -> length xs > 0) xss
-    -- TODO: indexesOfNonEmptysegs is sorted decreasingly: take advantage of that in restrictedPartitions!
+    -- indexesOfNonEmptysegs is sorted decreasingly: taking advantage of that in restrictedPartitions'!
     collect (segn : segs) indexesOfNonEmptysegs n 
       | infiniteResult = 
           let indexesOfNonEmptysegs' = if null segn then indexesOfNonEmptysegs else n : indexesOfNonEmptysegs
-          in (multimerge $ map wordsFromPartition (restrictedPartitions indexesOfNonEmptysegs' n))
+          in (multimerge $ map wordsFromPartition (restrictedPartitions' indexesOfNonEmptysegs' n))
                          ++ collect segs indexesOfNonEmptysegs' (n + 1)
       | otherwise = []
     wordsFromPartition [] = [[]]
@@ -232,6 +232,16 @@ restrictedPartitions [] n = [[]]
 restrictedPartitions ns n
   | n == 0 = [[]]
   | otherwise = let ns' = filter (<=n) ns in concatMap (\i -> map (i:) (restrictedPartitions ns' (n - i))) ns'
+
+-- | pn = restrictedPartitions ns n
+-- xs \in pn => sum xs = n, xi \in xs => xi \in ns /\ xi > 0
+-- no repetitions
+-- ns is sorted decreasingly
+restrictedPartitions' :: [Int] -> Int -> [[Int]]
+restrictedPartitions' [] n = [[]]
+restrictedPartitions' ns n
+  | n == 0 = [[]]
+  | otherwise = let ns' = dropWhile (>n) ns in concatMap (\i -> map (i:) (restrictedPartitions' ns' (n - i))) ns'
 
 collect n = concatMap wordsFromPartition (partitions n)
 wordsFromPartition [] = [[]]
