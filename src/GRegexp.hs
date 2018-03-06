@@ -185,6 +185,35 @@ star4' xss = [] : collect 1
     wordsFromPartition [] = [[]]
     wordsFromPartition (i:is) = concatMap (\w -> map (++w) (xsegs !! i)) (wordsFromPartition is)
 
+-- | productive, more efficient?
+star5 :: (Ord t) => [[t]] -> [[t]]
+star5 xss = [] : collect 1
+  where
+    xsegs = segmentize xss
+    emptysegs = map (not . null) xsegs
+    indexesOfNonEmptysegs n = map snd $ filter fst $ zip emptysegs [0 .. n]
+    infiniteResult = any (\xs -> length xs > 0) xss
+    collect n 
+      | infiniteResult = (multimerge $ map wordsFromPartition (restrictedPartitions (indexesOfNonEmptysegs n) n)) ++ collect (n + 1)
+      | otherwise = []
+    wordsFromPartition [] = [[]]
+    wordsFromPartition (i:is) = concatMap (\w -> map (w++) (xsegs !! i)) (wordsFromPartition is)
+
+-- | computing the indexesOfNonEmptysegs by accumulation
+star6 xss = [] : collect (tail xsegs) [] 1
+  where
+    xsegs = segmentize xss
+    infiniteResult = any (\xs -> length xs > 0) xss
+    -- TODO: indexesOfNonEmptysegs is sorted decreasingly: take advantage of that in restrictedPartitions!
+    collect (segn : segs) indexesOfNonEmptysegs n 
+      | infiniteResult = 
+          let indexesOfNonEmptysegs' = if null segn then indexesOfNonEmptysegs else n : indexesOfNonEmptysegs
+          in (multimerge $ map wordsFromPartition (restrictedPartitions indexesOfNonEmptysegs' n))
+                         ++ collect segs indexesOfNonEmptysegs' (n + 1)
+      | otherwise = []
+    wordsFromPartition [] = [[]]
+    wordsFromPartition (i:is) = concatMap (\w -> map (w++) (xsegs !! i)) (wordsFromPartition is)
+
 
 -- | pn = partitions n
 -- xs \in pn => sum xs = n, xi \in xs => xi > 0
@@ -193,6 +222,16 @@ partitions :: Int -> [[Int]]
 partitions n
   | n == 0 = [[]]
   | otherwise = concatMap (\i -> map (i:) (partitions (n - i))) [1 .. n]
+
+-- | pn = restrictedPartitions ns n
+-- xs \in pn => sum xs = n, xi \in xs => xi \in ns /\ xi > 0
+-- no repetitions
+-- repeated filtering may be O(n^2)
+restrictedPartitions :: [Int] -> Int -> [[Int]]
+restrictedPartitions [] n = [[]]
+restrictedPartitions ns n
+  | n == 0 = [[]]
+  | otherwise = let ns' = filter (<=n) ns in concatMap (\i -> map (i:) (restrictedPartitions ns' (n - i))) ns'
 
 collect n = concatMap wordsFromPartition (partitions n)
 wordsFromPartition [] = [[]]
@@ -221,4 +260,11 @@ generate' sigma r = gen r
     gen (Or r s) = merge (gen r) (gen s)
     gen (And r s) = intersect (gen r) (gen s)
     gen (Not r) = difference (sigma_star' sigma) (gen r)
-    gen (Star r) = star4' (gen r)
+    gen (Star r) = star6 (gen r)
+
+
+-- experiments
+
+ex_a_star = star6 ["a"]
+ex_a_ab_aba_star = star6 ["a", "ab", "aba"]
+ex_abstarstar = star6 (concatenate' ["a"] (star6 ["b"]))
