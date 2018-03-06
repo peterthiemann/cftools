@@ -4,6 +4,8 @@ import Data.List hiding (intersect)
 import qualified Data.List (intersect)
 import Data.Maybe
 
+-- import System.TimeIt
+
 -- | generalized regular expressions - with intersection and negation
 data GRE t
     = Zero
@@ -71,12 +73,21 @@ difference xss@(xs:xss') yss@(ys:yss')
 multimerge :: (Ord t) => [Lang t] -> Lang t
 multimerge = foldr merge []  
 
+-- | inefficient definition due to use of snoc
 sigma_star :: [t] -> Lang t
 sigma_star sigma = loop
   where
     loop = [] : concatMap f loop
     snoc xs x = xs ++ [x]
     f ts = map (snoc ts) sigma
+
+-- | create sigma* in a segmentized way avoids the inefficiency of snoc
+sigma_star' :: [t] -> Lang t
+sigma_star' sigma = concat segments
+  where
+    segments = [[]] : map extend segments
+    extend segment = concatMap (\x -> map (x:) segment) sigma
+
 
 -- | has problems because it may hang
 concatenate ::(Ord t) => Lang t -> Lang t -> Lang t
@@ -209,5 +220,5 @@ generate' sigma r = gen r
     gen (Dot r s) = concatenate' (gen r) (gen s)
     gen (Or r s) = merge (gen r) (gen s)
     gen (And r s) = intersect (gen r) (gen s)
-    gen (Not r) = difference (sigma_star sigma) (gen r)
+    gen (Not r) = difference (sigma_star' sigma) (gen r)
     gen (Star r) = star4' (gen r)
